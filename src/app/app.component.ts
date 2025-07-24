@@ -1,9 +1,11 @@
 import { Component } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { TodolistComponent } from './todolist/todolist.component'; //import eklendi
+
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet],
+  imports: [ TodolistComponent, FormsModule], //import eklendi
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
