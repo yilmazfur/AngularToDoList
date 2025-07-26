@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule, NgForm } from '@angular/forms';
+import { FormsModule, NgForm, AbstractControl, ValidationErrors, ValidatorFn  } from '@angular/forms';
 import { TodoService } from './services/TodoService';
 import { Todo } from './models/Todo';
 
@@ -43,7 +43,8 @@ export class TodolistComponent implements OnInit {
       const newTodo: Todo = {
         id: 0, // fix it 
         taskName: form.value.task, 
-        isCompleted: false 
+        isCompleted: false,
+        deadline:form.value.deadline
       };
 
       this.todoService.createTodo(newTodo).subscribe({
@@ -89,4 +90,28 @@ export class TodolistComponent implements OnInit {
       });
     }
   }
+
+  getTodayDate(): string {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  }
+  
+  notPastDateValidator(): ValidatorFn {
+    return (control: AbstractControl): ValidationErrors | null => {
+      if (!control.value) {
+        return null; // Don't validate empty values
+      }
+      
+      const selectedDate = new Date(control.value);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // Reset time to start of day
+      
+      if (selectedDate < today) {
+        return { pastDate: true };
+      }
+      
+      return null;
+    };
+  }
+
 }
