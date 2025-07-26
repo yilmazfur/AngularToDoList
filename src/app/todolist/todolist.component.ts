@@ -1,56 +1,92 @@
 import { Component, OnInit } from '@angular/core';
-import { NgForm, FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { FormsModule, NgForm } from '@angular/forms';
+import { TodoService } from './services/TodoService';
+import { Todo } from './models/Todo';
 
 @Component({
   selector: 'app-todolist',
-  imports: [FormsModule, CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './todolist.component.html',
   styleUrl: './todolist.component.scss'
 })
 export class TodolistComponent implements OnInit {
-  todos: string[] = [];
-  newTodo: string = '';
-  taskArray = [
-    {name: 'Task 1', isCompleted: true},
-    {name: 'Task 2', isCompleted: false},
-  ];
+  taskArray: Todo[] = [];
+  isLoading = false;
+  errorMessage = '';
+
+  constructor(private todoService: TodoService) {}
 
   ngOnInit(): void {
-    // Initialize with some default todos
-    this.todos = ['Learn Angular', 'Build a Todo App'];
+    this.loadTodos();
   }
 
-  onSubmit(form :NgForm): void {
-    console.log('Form submitted:', form);
-    // this.taskArray.push({name: form.value.task, isCompleted: false});
-    this.taskArray.push({name: form.controls['task'].value, isCompleted: false});
-
-    form.reset(); // Reset the form after submission
-
+  loadTodos(): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+    
+    this.todoService.getTodos().subscribe({
+      next: (todos) => {
+        this.taskArray = todos;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading todos:', error);
+        this.errorMessage = 'Failed to load todos. Please try again.';
+        this.isLoading = false;
+      }
+    });
   }
 
-  onDelete(index: number): void {
-    console.log('Deleting task at index:', index);
-    this.taskArray.splice(index, 1);
+  onSubmit(form: NgForm): void {
+    if (form.valid) {
+      const newTodo: Todo = {
+        id: 0, // fix it 
+        taskName: form.value.task, 
+        isCompleted: false 
+      };
+
+      this.todoService.createTodo(newTodo).subscribe({
+        next: (todo) => {
+          this.taskArray.push(todo);
+          form.reset();
+        },
+        error: (error) => {
+          console.error('Error creating todo:', error);
+          this.errorMessage = 'Failed to create todo. Please try again.';
+        }
+      });
+    }
   }
 
   onCheck(index: number): void {
-    // Logic for checking/unchecking a task can be added here
-    console.log('Checking task at index:', index);
-    this.taskArray[index].isCompleted = !this.taskArray[index].isCompleted;
-
+    const todo = this.taskArray[index];
+    if (todo.id) {
+      todo.isCompleted = !todo.isCompleted;
+      this.todoService.updateTodo(todo.id, todo).subscribe({
+        next: (updatedTodo) => {
+          this.taskArray[index] = updatedTodo;
+        },
+        error: (error) => {
+          console.error('Error updating todo:', error);
+          this.errorMessage = 'Failed to update todo. Please try again.';
+        }
+      });
+    }
   }
 
-  // addTodo(): void {
-  //   if (this.newTodo.trim()) {
-  //     this.todos.push(this.newTodo.trim());
-  //     this.newTodo = '';
-  //   }
-  // }
-
-  // removeTodo(index: number): void {
-  //   this.todos.splice(index, 1);
-  // }
-
+  onDelete(index: number): void {
+    const todo = this.taskArray[index];
+    if (todo.id) {
+      this.todoService.deleteTodo(todo.id).subscribe({
+        next: () => {
+          this.taskArray.splice(index, 1);
+        },
+        error: (error) => {
+          console.error('Error deleting todo:', error);
+          this.errorMessage = 'Failed to delete todo. Please try again.';
+        }
+      });
+    }
+  }
 }

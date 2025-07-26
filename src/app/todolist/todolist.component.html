@@ -1,36 +1,54 @@
 <div class="container">
     <h1>Todo List</h1>
+    
+    <!-- Error Message -->
+    <div *ngIf="errorMessage" class="alert alert-danger" role="alert">
+        {{ errorMessage }}
+        <button type="button" class="btn btn-link" (click)="loadTodos()">Retry</button>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div *ngIf="isLoading" class="text-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+
     <form (ngSubmit)="onSubmit(taskForm)" #taskForm="ngForm">
-        <div class="form-group">
-            <label for="exampleInputEmail1">Task</label>
+        <div class="form-group mb-3">
+            <label for="task">Task</label>
             <input type="text" class="form-control" id="task" placeholder="Enter Task" ngModel name="task" required>
             <small *ngIf="taskForm.invalid && taskForm.dirty" id="errorMessage" class="form-text text-danger">Required field</small>
         </div>
         <button 
-        [disabled]="taskForm.invalid"
-        id="submitButton" 
-        type="submit" 
-        class="btn btn-primary">Submit</button>
+            [disabled]="taskForm.invalid || isLoading"
+            id="submitButton" 
+            type="submit" 
+            class="btn btn-primary">
+            <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            Submit
+        </button>
     </form>  
     <hr>
-    
 
-    <table class="table">
-  <thead>
-    <tr>
-      <th scope="col">Task</th>
-      <th scope="col">Completed</th>
-      <th scope="col">Delete</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr *ngFor="let t of taskArray; index as i">
-      <td [ngClass]="{'text-decoration-line-through': t.isCompleted}">{{t.name}}</td>
-      <td><input id = "myCheckbox" type="checkbox" [checked]="t.isCompleted" (change)="onCheck(i)"></td>
-      <td><button class="btn btn-danger btn-sm" (click)="onDelete(i)" >Delete</button></td>
-    </tr>
-  </tbody>
-</table>
+    <table class="table" *ngIf="taskArray.length > 0">
+        <thead>
+            <tr>
+                <th scope="col">Task</th>
+                <th scope="col">Completed</th>
+                <th scope="col">Delete</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let t of taskArray; index as i">
+            <td [ngClass]="{'text-decoration-line-through': t.isCompleted}">{{t.taskName}}</td>
+            <td><input type="checkbox" [checked]="t.isCompleted" (change)="onCheck(i)"></td>
+            <td><button class="btn btn-danger btn-sm" (click)="onDelete(i)">Delete</button></td>
+          </tr>
+        </tbody>
+    </table>
 
+    <div *ngIf="taskArray.length === 0 && !isLoading" class="text-center text-muted">
+        <p>No todos yet. Add your first task above!</p>
+    </div>
 </div>
-
