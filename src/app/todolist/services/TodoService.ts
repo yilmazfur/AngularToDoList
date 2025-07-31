@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { Todo } from '../models/Todo';
+import { Todo } from '../models/Todo'; 
+import { TaskSuggestions } from '../models/TaskSuggestions';
 
 @Injectable({
   providedIn: 'root'
@@ -42,8 +43,17 @@ export class TodoService {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
 
-  // Toggle todo completion status
-  toggleTodoCompletion(id: number): Observable<Todo> {
-    return this.http.patch<Todo>(`${this.apiUrl}/${id}/toggle`, {}, this.httpOptions);
+  askAi(question: string): Observable<string>{
+    const httpOptionsText = {
+      headers: new HttpHeaders({
+        'Content-Type': 'application/json'
+      }),
+      responseType: 'text' as 'json'
+    };
+    return this.http.post<string>(this.apiUrl + "/OpenAI", JSON.stringify(question), httpOptionsText)
+  }
+
+  suggestRelatedTasks(taskName: string): Observable<TaskSuggestions> {   
+    return this.http.post<TaskSuggestions>(this.apiUrl + "/OpenAI/suggest-tasks", JSON.stringify(taskName), this.httpOptions);
   }
 }

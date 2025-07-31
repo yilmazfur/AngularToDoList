@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, NgForm, AbstractControl, ValidationErrors, ValidatorFn  } from '@angular/forms';
 import { TodoService } from './services/TodoService';
 import { Todo } from './models/Todo';
+import { TaskSuggestions } from './models/TaskSuggestions';
 
 @Component({
   selector: 'app-todolist',
@@ -10,10 +11,19 @@ import { Todo } from './models/Todo';
   templateUrl: './todolist.component.html',
   styleUrl: './todolist.component.scss'
 })
+
 export class TodolistComponent implements OnInit {
   taskArray: Todo[] = [];
   isLoading = false;
   errorMessage = '';
+  question = "";
+  answer = "";
+
+  showSuggestions = false;
+  suggestedTasks: string[] = [];
+  originalTaskData: any = null;
+  isGettingSuggestions = false;
+  selectedSuggestions: boolean[] = [];
 
   constructor(private todoService: TodoService) {}
 
@@ -40,23 +50,14 @@ export class TodolistComponent implements OnInit {
 
   onSubmit(form: NgForm): void {
     if (form.valid) {
-      const newTodo: Todo = {
-        id: 0, // fix it 
-        taskName: form.value.task, 
-        isCompleted: false,
-        deadline:form.value.deadline
+      // Store the form data for potential suggestions
+      this.originalTaskData = {
+        taskName: form.value.task,
+        deadline: form.value.deadline
       };
 
-      this.todoService.createTodo(newTodo).subscribe({
-        next: (todo) => {
-          this.taskArray.push(todo);
-          form.reset();
-        },
-        error: (error) => {
-          console.error('Error creating todo:', error);
-          this.errorMessage = 'Failed to create todo. Please try again.';
-        }
-      });
+      // Get AI suggestions first
+      this.getSuggestions(form.value.task, form.value.deadline);
     }
   }
 
@@ -74,6 +75,93 @@ export class TodolistComponent implements OnInit {
         }
       });
     }
+  }
+
+  getSuggestions(taskName: string, deadline?: string): void {
+    this.isGettingSuggestions = true;
+    this.todoService.suggestRelatedTasks(taskName).subscribe({
+      next: (suggestions) => {
+        this.suggestedTasks = suggestions.suggestedTasks;
+        this.selectedSuggestions = new Array(this.suggestedTasks.length).fill(false);
+        this.showSuggestions = true;
+        this.isGettingSuggestions = false;
+      },
+      error: (error) => {
+        console.error('Error getting suggestions:', error);
+        // If AI fails, just create the original task
+        this.createOriginalTask();
+        this.isGettingSuggestions = false;
+      }
+    });
+  }
+
+  createOriginalTask(): void {
+    const newTodo: Todo = {
+      id: 0,
+      taskName: this.originalTaskData.taskName,
+      isCompleted: false,
+      deadline: this.originalTaskData.deadline
+    };
+
+    this.todoService.createTodo(newTodo).subscribe({
+      next: (todo) => {
+        this.taskArray.push(todo);
+        this.resetForm();
+      },
+      error: (error) => {
+        console.error('Error creating todo:', error);
+        this.errorMessage = 'Failed to create todo. Please try again.';
+      }
+    });
+  }
+
+  createTasksFromSuggestions(selectedTasks: string[]): void {
+    // Add original task
+    const tasks = [this.originalTaskData.taskName, ...selectedTasks];
+    
+    // Create all selected tasks
+    const createRequests = tasks.map(taskName => {
+      const newTodo: Todo = {
+        id: 0,
+        taskName: taskName,
+        isCompleted: false,
+        deadline: this.originalTaskData.deadline
+      };
+      return this.todoService.createTodo(newTodo);
+    });
+
+    // Execute all requests
+    this.isLoading = true;
+    Promise.all(createRequests.map(req => req.toPromise())).then(
+      (todos) => {
+        todos.forEach(todo => {
+          if (todo) this.taskArray.push(todo);
+        });
+        this.resetForm();
+        this.isLoading = false;
+      },
+      (error) => {
+        console.error('Error creating todos:', error);
+        this.errorMessage = 'Failed to create some todos. Please try again.';
+        this.isLoading = false;
+      }
+    );
+  }
+
+  acceptSuggestions(selectedIndices: number[]): void {
+    const selectedTasks = selectedIndices.map(i => this.suggestedTasks[i]);
+    this.createTasksFromSuggestions(selectedTasks);
+  }
+
+  rejectSuggestions(): void {
+    this.createOriginalTask();
+  }
+
+  resetForm(): void {
+    this.showSuggestions = false;
+    this.suggestedTasks = [];
+    this.originalTaskData = null;
+    this.selectedSuggestions = [];
   }
 
   onDelete(index: number): void {
@@ -96,22 +184,26 @@ export class TodolistComponent implements OnInit {
     return today.toISOString().split('T')[0];
   }
   
-  notPastDateValidator(): ValidatorFn {
-    return (control: AbstractControl): ValidationErrors | null => {
-      if (!control.value) {
-        return null; // Don't validate empty values
-      }
-      
-      const selectedDate = new Date(control.value);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset time to start of day
-      
-      if (selectedDate < today) {
-        return { pastDate: true };
-      }
-      
-      return null;
-    };
+  getSelectedIndices(): number[] {
+    return this.selectedSuggestions
+      .map((selected, index) => selected ? index : -1)
+      .filter(index => index !== -1);
   }
 
+  getAllIndices(): number[] {
+    return this.suggestedTasks.map((_, index) => index);
+  }
+
+  askAi(){
+    var param = this.question;
+    this.todoService.askAi(param).subscribe({
+      next:(aiAnswer: string) => {
+        this.answer = aiAnswer;
+      },
+      error: (error)=>{
+          console.error('Error with AI:', error);
+          this.errorMessage = 'Failed to get AI response. Please try again.';
+      }
+    })
+  }
 }

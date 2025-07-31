@@ -9,20 +9,12 @@
 
     <!-- Loading Indicator -->
     <div *ngIf="isLoading" class="text-center">
-        <div class="spinner-border" role="status">
-            <span class="visually-hidden">Loading...</span>
+        <div class="spinner-border" ><!-- This is a Bootstrap CSS class that creates a spinning loading indicator animation. -->
         </div>
     </div>
 
-    <!-- <mat-form-field>
-  <mat-label>Date of Birth</mat-label>
-  <input matInput [matDatepicker]="picker" formControlName="dob">
-  <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
-  <mat-datepicker #picker></mat-datepicker>
-</mat-form-field> -->
-
-
-    <form (ngSubmit)="onSubmit(taskForm)" #taskForm="ngForm">
+    <!-- Task Form -->
+    <form (ngSubmit)="onSubmit(taskForm)" #taskForm="ngForm" *ngIf="!showSuggestions">
         <div class="form-group mb-3">
             <label for="task">Task</label>
             <input type="text" class="form-control" id="task" placeholder="Enter Task" ngModel name="task" required>
@@ -30,39 +22,73 @@
         </div>
         <div class="form-group">
             <label for="deadline">Deadline </label>
-            <!-- <input type="date" [min]="getTodayDate()" class="form-control" id="deadline" ngModel name="deadline"> -->
-
-<input 
-        type="date" 
-        class="form-control" 
-        id="deadline" 
-        ngModel 
-        name="deadline"
-        notPastDateValidator
-        #deadlineInput="ngModel"
-        [class.is-invalid]="deadlineInput.invalid && deadlineInput.touched">
-    <small *ngIf="deadlineInput.invalid && deadlineInput.touched" class="form-text text-danger">
-        <span *ngIf="deadlineInput.errors?.['pastDate']">Date cannot be in the past</span>
-    </small>
-
-
-
-            <!-- <mat-form-field>
-            <mat-label>Date of Birth</mat-label>
-                <input matInput [matDatepicker]="picker" >
-                <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
-                <mat-datepicker #picker></mat-datepicker>
-            </mat-form-field>          -->
+            <input 
+                type="date" 
+                class="form-control" 
+                id="deadline" 
+                [min]="getTodayDate()"
+                ngModel 
+                name="deadline">
         </div>
         <button 
-            [disabled]="taskForm.invalid || isLoading"
+            [disabled]="taskForm.invalid || isGettingSuggestions"
             id="submitButton" 
             type="submit" 
             class="btn btn-primary">
-            <span *ngIf="isLoading" class="spinner-border spinner-border-sm me-2" role="status"></span>
-            Submit
+            <span *ngIf="isGettingSuggestions" class="spinner-border spinner-border-sm me-2"></span>
+            {{ isGettingSuggestions ? 'Getting AI Suggestions...' : 'Submit' }}
         </button>
-    </form>  
+    </form>
+
+    <!-- AI Suggestions Panel -->
+    <div *ngIf="showSuggestions" class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">
+                AI Suggests These Related Tasks
+            </h5>
+        </div>
+        <div class="card-body">
+            <p class="card-text">
+                <strong>Your task:</strong> {{ originalTaskData.taskName }}
+                <span *ngIf="originalTaskData.deadline" class="text-muted">
+                    (Due: {{ originalTaskData.deadline | date:'shortDate' }})
+                </span>
+            </p>
+            
+            <p class="text-muted">AI suggests these additional tasks to help you succeed:</p>
+            
+            <div class="form-check mb-2" *ngFor="let task of suggestedTasks; index as i">
+                <input 
+                    class="form-check-input" 
+                    type="checkbox" 
+                    [id]="'suggestion-' + i"
+                    [(ngModel)]="selectedSuggestions[i]"> 
+<!--normalde degisken bind ediliyordu.Burda boolean dizideki bir degeri bind ettik. sonucta o da set edilebiliyor. Compare with [(ngModel)]="answer" -->
+                <label class="form-check-label" [for]="'suggestion-' + i">
+                    {{ task }}
+                </label>
+            </div>
+            
+            <div class="d-flex gap-2 mt-3">
+                <button 
+                    class="btn btn-success" 
+                    (click)="acceptSuggestions(getSelectedIndices())">
+                    <i class="bi bi-check-lg"></i> Add Selected Tasks
+                </button>
+                <button 
+                    class="btn btn-primary" 
+                    (click)="acceptSuggestions(getAllIndices())">
+                    <i class="bi bi-check-all"></i> Add All Tasks
+                </button>
+                <button 
+                    class="btn btn-outline-secondary" 
+                    (click)="rejectSuggestions()">
+                    <i class="bi bi-x-lg"></i> Just Original Task
+                </button>
+            </div>
+        </div>
+    </div>
+
     <hr>
 
     <table class="table" *ngIf="taskArray.length > 0">
@@ -76,15 +102,60 @@
         </thead>
         <tbody>
             <tr *ngFor="let t of taskArray; index as i">
-            <td [ngClass]="{'text-decoration-line-through': t.isCompleted}">{{t.taskName}}</td>
-            <td>{{t.deadline ? ( t.deadline | date:'shortDate') : 'No deadline' }}</td>
-            <td><input type="checkbox" [checked]="t.isCompleted" (change)="onCheck(i)"></td>
-            <td><button class="btn btn-danger btn-sm" (click)="onDelete(i)">Delete</button></td>
-          </tr>
+                <td [ngClass]="{'text-decoration-line-through': t.isCompleted}">{{t.taskName}}</td>
+                <td>{{t.deadline ? ( t.deadline | date:'shortDate') : 'No deadline' }}</td>
+                <td><input type="checkbox" [checked]="t.isCompleted" (change)="onCheck(i)"></td>
+                <td><button class="btn btn-danger btn-sm" (click)="onDelete(i)">Delete</button></td>
+            </tr>
         </tbody>
     </table>
 
     <div *ngIf="taskArray.length === 0 && !isLoading" class="text-center text-muted">
         <p>No todos yet. Add your first task above!</p>
+    </div>
+</div>
+
+<!-- AI Chat Section -->
+<div class="container mt-5">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Ask AI Assistant</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="question" class="form-label">Ask AI:</label>
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        class="form-control" 
+                        id="question"
+                        [(ngModel)]="question" 
+                        name="question" 
+                        placeholder="Ask AI about your tasks..."
+                        (keypress)="$event.key === 'Enter' && askAi()">
+                    <button 
+                        type="button" 
+                        class="btn btn-primary" 
+                        (click)="askAi()"
+                        [disabled]="!question.trim()">
+                        Ask AI
+                    </button>
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <label for="answer" class="form-label">AI Response:</label>
+                <textarea 
+                    class="form-control" 
+                    id="answer"
+                    name="answer" 
+                    rows="6"
+                    readonly
+                    [(ngModel)]="answer"
+                    placeholder="AI response will appear here..."
+                    [class.bg-light]="!answer">
+                </textarea>
+            </div>
+        </div>
     </div>
 </div>
