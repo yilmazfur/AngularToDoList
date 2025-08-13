@@ -8,7 +8,10 @@ import { TaskSuggestions } from '../models/TaskSuggestions';
   providedIn: 'root'
 })
 export class TodoService {
-  private apiUrl = 'https://localhost:7263/ToDo';
+  private apiUrl = 'https://localhost:7263/ToDo';//local
+  // private apiUrl = 'http://localhost:5000/ToDo';//docker
+  // private apiUrl = 'http://localhost:30080/ToDo';//kubernetes
+
 
   private httpOptions = {
     headers: new HttpHeaders({
