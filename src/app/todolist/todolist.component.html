@@ -2,117 +2,139 @@
     <h1>Todo List</h1>
     
     <!-- Error Message -->
-    <div *ngIf="errorMessage" class="alert alert-danger" role="alert">
-        {{ errorMessage }}
-        <button type="button" class="btn btn-link" (click)="loadTodos()">Retry</button>
-    </div>
+    @if (store.errorMessage()) {
+        <div class="alert alert-danger" role="alert">
+            {{ store.errorMessage() }}
+            <button type="button" class="btn btn-link" (click)="loadTodos()">Retry</button>
+        </div>
+    }
 
     <!-- Loading Indicator -->
-    <div *ngIf="isLoading" class="text-center">
-        <div class="spinner-border" ><!-- This is a Bootstrap CSS class that creates a spinning loading indicator animation. -->
+    @if (store.isLoading()) {
+        <div class="text-center">
+            <div class="spinner-border"><!-- This is a Bootstrap CSS class that creates a spinning loading indicator animation. -->
+            </div>
         </div>
-    </div>
+    }
 
     <!-- Task Form -->
-    <form (ngSubmit)="onSubmit(taskForm)" #taskForm="ngForm" *ngIf="!showSuggestions">
-        <div class="form-group mb-3">
-            <label for="task">Task</label>
-            <input type="text" class="form-control" id="task" placeholder="Enter Task" ngModel name="task" required>
-            <small *ngIf="taskForm.invalid && taskForm.dirty" id="errorMessage" class="form-text text-danger">Required field</small>
-        </div>
-        <div class="form-group">
-            <label for="deadline">Deadline </label>
-            <input 
-                type="date" 
-                class="form-control" 
-                id="deadline" 
-                [min]="getTodayDate()"
-                ngModel 
-                name="deadline">
-        </div>
-        <button 
-            [disabled]="taskForm.invalid || isGettingSuggestions"
-            id="submitButton" 
-            type="submit" 
-            class="btn btn-primary">
-            <span *ngIf="isGettingSuggestions" class="spinner-border spinner-border-sm me-2"></span>
-            {{ isGettingSuggestions ? 'Getting AI Suggestions...' : 'Submit' }}
-        </button>
-    </form>
+    @if (!store.showSuggestions()) {
+        <form (ngSubmit)="onSubmit(taskForm)" #taskForm="ngForm">
+            <div class="form-group mb-3">
+                <label for="task">Task</label>
+                <input type="text" class="form-control" id="task" placeholder="Enter Task" ngModel name="task" required>
+                @if (taskForm.invalid && taskForm.dirty) {
+                    <small id="errorMessage" class="form-text text-danger">Required field</small>
+                }
+            </div>
+            <div class="form-group">
+                <label for="deadline">Deadline </label>
+                <input 
+                    type="date" 
+                    class="form-control" 
+                    id="deadline" 
+                    [min]="getTodayDate()"
+                    ngModel 
+                    name="deadline">
+            </div>
+            <button 
+                [disabled]="taskForm.invalid || store.isGettingSuggestions()"
+                id="submitButton" 
+                type="submit" 
+                class="btn btn-primary">
+                @if (store.isGettingSuggestions()) {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                }
+                {{ store.isGettingSuggestions() ? 'Getting AI Suggestions...' : 'Submit' }}
+            </button>
+        </form>
+    }
 
     <!-- AI Suggestions Panel -->
-    <div *ngIf="showSuggestions" class="card mt-4">
-        <div class="card-header">
-            <h5 class="mb-0">
-                AI Suggests These Related Tasks
-            </h5>
-        </div>
-        <div class="card-body">
-            <p class="card-text">
-                <strong>Your task:</strong> {{ originalTaskData.taskName }}
-                <span *ngIf="originalTaskData.deadline" class="text-muted">
-                    (Due: {{ originalTaskData.deadline | date:'shortDate' }})
-                </span>
-            </p>
-            
-            <p class="text-muted">AI suggests these additional tasks to help you succeed:</p>
-            
-            <div class="form-check mb-2" *ngFor="let task of suggestedTasks; index as i">
-                <input 
-                    class="form-check-input" 
-                    type="checkbox" 
-                    [id]="'suggestion-' + i"
-                    [(ngModel)]="selectedSuggestions[i]"> 
-<!--normalde degisken bind ediliyordu.Burda boolean dizideki bir degeri bind ettik. sonucta o da set edilebiliyor. Compare with [(ngModel)]="answer" -->
-                <label class="form-check-label" [for]="'suggestion-' + i">
-                    {{ task }}
-                </label>
+    @if (store.showSuggestions()) {
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    AI Suggests These Related Tasks
+                </h5>
             </div>
-            
-            <div class="d-flex gap-2 mt-3">
-                <button 
-                    class="btn btn-success" 
-                    (click)="acceptSuggestions(getSelectedIndices())">
-                    <i class="bi bi-check-lg"></i> Add Selected Tasks
-                </button>
-                <button 
-                    class="btn btn-primary" 
-                    (click)="acceptSuggestions(getAllIndices())">
-                    <i class="bi bi-check-all"></i> Add All Tasks
-                </button>
-                <button 
-                    class="btn btn-outline-secondary" 
-                    (click)="rejectSuggestions()">
-                    <i class="bi bi-x-lg"></i> Just Original Task
-                </button>
+            <div class="card-body">
+                <p class="card-text">
+                    <strong>Your task:</strong> {{ store.originalTaskData()?.taskName }}
+                    @if (store.originalTaskData()?.deadline) {
+                        <span class="text-muted">
+                            (Due: {{ store.originalTaskData()?.deadline | date:'shortDate' }})
+                        </span>
+                    }
+                </p>
+                
+                <p class="text-muted">AI suggests these additional tasks to help you succeed:</p>
+                
+                @for (task of store.suggestedTasks(); track $index) {
+                    <div class="form-check mb-2">
+                        <input 
+                            class="form-check-input" 
+                            type="checkbox" 
+                            [id]="'suggestion-' + $index"
+                            [checked]="store.selectedSuggestions()[$index]"
+                            (change)="onSuggestionChange($index, $event)">
+                        <label class="form-check-label" [for]="'suggestion-' + $index">
+                            {{ task }}
+                        </label>
+                    </div>
+                }
+                
+                <div class="d-flex gap-2 mt-3">
+                    <button 
+                        class="btn btn-success" 
+                        (click)="acceptSuggestions(getSelectedIndices())">
+                        <i class="bi bi-check-lg"></i> Add Selected Tasks
+                    </button>
+                    <button 
+                        class="btn btn-primary" 
+                        (click)="acceptSuggestions(getAllIndices())">
+                        <i class="bi bi-check-all"></i> Add All Tasks
+                    </button>
+                    <button 
+                        class="btn btn-outline-secondary" 
+                        (click)="rejectSuggestions()">
+                        <i class="bi bi-x-lg"></i> Just Original Task
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
+    }
 
     <hr>
 
-    <table class="table" *ngIf="taskArray.length > 0">
-        <thead>
-            <tr>
-                <th scope="col">Task</th>
-                <th scope="col">Deadline</th>
-                <th scope="col">Completed</th>
-                <th scope="col">Delete</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr *ngFor="let t of taskArray; index as i">
-                <td [ngClass]="{'text-decoration-line-through': t.isCompleted}">{{t.taskName}}</td>
-                <td>{{t.deadline ? ( t.deadline | date:'shortDate') : 'No deadline' }}</td>
-                <td><input type="checkbox" [checked]="t.isCompleted" (change)="onCheck(i)"></td>
-                <td><button class="btn btn-danger btn-sm" (click)="onDelete(i)">Delete</button></td>
-            </tr>
-        </tbody>
-    </table>
+    @if (store.todos().length > 0) {
+        <table class="table">
+            <thead>
+                <tr>
+                    <th scope="col">Task</th>
+                    <th scope="col">Deadline</th>
+                    <th scope="col">Completed</th>
+                    <th scope="col">Delete</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (t of store.todos(); track t.id || $index) {
+                    <tr>
+                        <td [ngClass]="{'text-decoration-line-through': t.isCompleted}">{{t.taskName}}</td>
+                        <td>{{t.deadline ? ( t.deadline | date:'shortDate') : 'No deadline' }}</td>
+                        <td><input type="checkbox" [checked]="t.isCompleted" (change)="onCheck($index)"></td>
+                        <td><button class="btn btn-danger btn-sm" (click)="onDelete($index)">Delete</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
 
-    <div *ngIf="taskArray.length === 0 && !isLoading" class="text-center text-muted">
-        <p>No todos yet. Add your first task above!</p>
-    </div>
+    @if (store.todos().length === 0 && !store.isLoading()) {
+        <div class="text-center text-muted">
+            <p>No todos yet. Add your first task above!</p>
+        </div>
+    }
 </div>
 
 <!-- AI Chat Section -->
@@ -129,7 +151,8 @@
                         type="text" 
                         class="form-control" 
                         id="question"
-                        [(ngModel)]="question" 
+                        [value]="store.question()"
+                        (input)="onQuestionChange($any($event.target).value)"
                         name="question" 
                         placeholder="Ask AI about your tasks..."
                         (keypress)="$event.key === 'Enter' && askAi()">
@@ -137,7 +160,7 @@
                         type="button" 
                         class="btn btn-primary" 
                         (click)="askAi()"
-                        [disabled]="!question.trim()">
+                        [disabled]="!store.question().trim()">
                         Ask AI
                     </button>
                 </div>
@@ -151,9 +174,9 @@
                     name="answer" 
                     rows="6"
                     readonly
-                    [(ngModel)]="answer"
+                    [value]="store.answer()"
                     placeholder="AI response will appear here..."
-                    [class.bg-light]="!answer">
+                    [class.bg-light]="!store.answer()">
                 </textarea>
             </div>
         </div>
